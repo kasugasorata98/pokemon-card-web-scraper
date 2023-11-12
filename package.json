@@ -1,0 +1,11 @@
+{
+  "name": "pokemon-card-web-scraper",
+  "author": "Jeromy Kho Chung Ming",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "ts-node index.ts"
+  },
+  "dependencies": {
+    "puppeteer": "^21.5.1"
+  }
+}
