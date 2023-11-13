@@ -86,7 +86,8 @@ async function run() {
             .querySelector(".name a")
             ?.textContent?.toLowerCase()
             .trim()
-            .replace(" ", "_") // replace empty space with underscore
+            .replace(" ", "_")
+            .replace("-", "_")
             .replace(/\W/g, "")!; // remove all special chracters not including underscore
 
           pokemonCardDetails.push({
@@ -101,19 +102,21 @@ async function run() {
         return pokemonCardDetails;
       }
     );
-
-    for (const pokemonCardDetail of pokemonCardDetails) {
+    console.log(`Downloading Page: ${i + 1}`);
+    pokemonCardDetails.map(async (pokemonCardDetail) => {
       try {
-        console.log("Downloading Page: " + i + 1);
         await downloadImage(pokemonCardDetail);
       } catch (err) {
-        console.error("Error at page: " + i + 1);
+        console.error(`Error Page: ${i + 1}`);
         throw err;
       }
-    }
+    });
   }
 
   await browser.close();
 }
 
-run();
+console.time("Download");
+run().finally(() => {
+  console.timeEnd("Download");
+});
