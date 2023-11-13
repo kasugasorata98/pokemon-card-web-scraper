@@ -10,6 +10,8 @@ type PokemonCardDetail = {
   downloadLink: string;
 };
 
+const TIMELOG = "PROGRESS";
+
 async function downloadImage(pokemonCardDetail: PokemonCardDetail) {
   try {
     const response = await axios({
@@ -105,20 +107,24 @@ async function run() {
       }
     );
     console.log(`Downloading Page: ${i + 1}`);
-    pokemonCardDetails.map(async (pokemonCardDetail) => {
-      try {
-        await downloadImage(pokemonCardDetail);
-      } catch (err) {
-        console.error(`Error Page: ${i + 1}`);
-        throw err;
-      }
+    Promise.all(
+      pokemonCardDetails.map(async (pokemonCardDetail) => {
+        try {
+          await downloadImage(pokemonCardDetail);
+        } catch (err) {
+          console.error(`Error Page: ${i + 1}`);
+          throw err;
+        }
+      })
+    ).finally(() => {
+      console.timeLog(TIMELOG);
     });
   }
 
   await browser.close();
 }
 
-console.time("Download");
+console.time(TIMELOG);
 run().finally(() => {
-  console.timeEnd("Download");
+  console.timeEnd(TIMELOG);
 });
