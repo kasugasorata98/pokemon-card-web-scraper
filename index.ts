@@ -71,6 +71,8 @@ async function run() {
             entryContentElement.querySelector(
               ".card-title a span"
             )?.textContent;
+
+          // Only if the title has brackets
           const regex = /\((.*?)\)/;
           const match = title!.match(regex);
           if (!match) continue;
