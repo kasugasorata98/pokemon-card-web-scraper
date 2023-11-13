@@ -1,103 +1,49 @@
-import puppeteer, { Browser } from "puppeteer";
+import puppeteer from "puppeteer";
+import axios from "axios";
+import * as fs from "fs";
+import * as path from "path";
 
-// async function openPokemonCardPage(
-//   abbreviationsAndLinks: PokemonAbbreviationsAndLinks[]
-// ) {
-//   const pokemonGroupPage = await browser.newPage();
-//   await pokemonGroupPage.setRequestInterception(true);
+type PokemonCardDetail = {
+  group: string;
+  number: string;
+  name: string;
+  downloadLink: string;
+};
 
-//   // Intercept network requests
-//   pokemonGroupPage.on("request", (request) => {
-//     // Allow all non-image requests
-//     if (!request.resourceType() || request.resourceType() !== "image") {
-//       request.continue();
-//       return;
-//     }
+async function downloadImage(pokemonCardDetail: PokemonCardDetail) {
+  try {
+    const response = await axios({
+      method: "GET",
+      url: pokemonCardDetail.downloadLink,
+      responseType: "stream",
+    });
 
-//     // Block webp image requests
-//     if (request.url().endsWith(".webp")) {
-//       request.abort();
-//     } else {
-//       request.continue();
-//     }
-//   });
+    const destination = `./storage/${pokemonCardDetail.group}/${pokemonCardDetail.group}.${pokemonCardDetail.number}.${pokemonCardDetail.name}.png`;
 
-//   function formatNumber(num: number): string {
-//     // Ensure the number is within the valid range (1 to 100)
-//     const validNum = Math.max(1, Math.min(100, num));
+    const destinationFolder = path.dirname(destination);
 
-//     // Convert the number to a string and pad with leading zeros
-//     return validNum.toString().padStart(3, "0");
-//   }
+    // Create the destination folder if it doesn't exist
+    if (!fs.existsSync(destinationFolder)) {
+      fs.mkdirSync(destinationFolder, { recursive: true });
+    }
 
-//   await pokemonGroupPage.goto(
-//     abbreviationsAndLinks[0]!.link + "?display=full",
-//     {
-//       waitUntil: "networkidle2",
-//     }
-//   );
-//   for (const abbreviationAndLink of abbreviationsAndLinks) {
-//     await pokemonGroupPage.goto(abbreviationAndLink?.link + "?display=full", {
-//       waitUntil: "networkidle2",
-//     });
-//     const result = await pokemonGroupPage.evaluate(() => {
-//       const downloadImageLink = document.querySelectorAll(
-//         '.entry-content a[title="Download Image"]'
-//       );
-//       //   const nameText = document
-//       //     .querySelector(".name a")!
-//       //     .textContent?.toLowerCase();
+    // Pipe the image stream to a file
+    response.data.pipe(fs.createWriteStream(destination));
+    console.log(`Downloading to ${destination}`);
 
-//       //   const number = document
-//       //     .querySelector(".number a")!
-//       //     .textContent?.toLowerCase();
-//       //   return {
-//       //     downloadImageHref: downloadImageLink
-//       //       ? downloadImageLink.getAttribute("href")
-//       //       : null,
-//       //     nameText: nameText!.trim(),
-//       //     number,
-//       //   };
-//     });
+    return new Promise<void>((resolve, reject) => {
+      response.data.on("end", () => {
+        resolve();
+      });
 
-//     // console.log({
-//     //   groupName: abbreviationAndLink?.groupName,
-//     //   number: formatNumber(Number(result.number)),
-//     //   name: result.nameText,
-//     //   link: result.downloadImageHref,
-//     // });
-//   }
-// }
-
-// async function extractAbbreviationsAndLinks() {
-//   const pokemonSetPage = await browser.newPage();
-
-//   await pokemonSetPage.goto("https://pkmncards.com/sets/");
-//   await pokemonSetPage.waitForSelector(".entry-content");
-//   let pokemonCardSets = await pokemonSetPage.$$eval(
-//     ".entry-content li a",
-//     (anchors) =>
-//       anchors.map((a) => {
-//         const textContent = a.textContent;
-//         if (textContent) {
-//           const regex = /\((.*?)\)/;
-//           const match = textContent.match(regex);
-//           if (match && match[1]) {
-//             return {
-//               link: a.getAttribute("href"),
-//               groupName: match[1].toLowerCase(),
-//             };
-//           }
-//         }
-//       })
-//   );
-
-//   pokemonCardSets = pokemonCardSets.filter(
-//     (pokemonCardSet) => pokemonCardSet !== null
-//   );
-//   pokemonSetPage.close();
-//   return pokemonCardSets;
-// }
+      response.data.on("error", (err: any) => {
+        reject(err);
+      });
+    });
+  } catch (error) {
+    throw error;
+  }
+}
 
 async function run() {
   const browser = await puppeteer.launch({
@@ -105,7 +51,7 @@ async function run() {
   });
 
   const page = await browser.newPage();
-
+  // 734
   for (let i = 0; i < 734; i++) {
     await page.goto(
       `https://pkmncards.com/page/${
@@ -119,7 +65,7 @@ async function run() {
     let pokemonCardDetails = await page.$$eval(
       ".entry-content",
       (entryContentElements) => {
-        const pokemonCardDetails = [];
+        const pokemonCardDetails: PokemonCardDetail[] = [];
         for (const entryContentElement of entryContentElements) {
           const title =
             entryContentElement.querySelector(
@@ -131,21 +77,40 @@ async function run() {
 
           const numberString =
             entryContentElement.querySelector(".number a")?.textContent;
-          const validNum = Math.max(1, Math.min(100, Number(numberString)));
+          const validNum = Math.max(
+            1,
+            Math.min(999, Number(numberString!.replace(/\D/g, "")))
+          );
+
+          const name = entryContentElement
+            .querySelector(".name a")
+            ?.textContent?.toLowerCase()
+            .trim()
+            .replace(" ", "_") // replace empty space with underscore
+            .replace(/\W/g, "")!; // remove all special chracters not including underscore
 
           pokemonCardDetails.push({
             group: match[1].toLowerCase(),
             number: validNum.toString().padStart(3, "0"),
+            name,
             downloadLink: entryContentElement
               .querySelector('.image-meta a[title="Download Image"]')
-              ?.getAttribute("href"),
+              ?.getAttribute("href")!,
           });
         }
         return pokemonCardDetails;
       }
     );
 
-    console.log(pokemonCardDetails);
+    for (const pokemonCardDetail of pokemonCardDetails) {
+      try {
+        console.log("Downloading Page: " + i + 1);
+        await downloadImage(pokemonCardDetail);
+      } catch (err) {
+        console.error("Error at page: " + i + 1);
+        throw err;
+      }
+    }
   }
 
   await browser.close();
