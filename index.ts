@@ -18,7 +18,7 @@ async function downloadImage(pokemonCardDetail: PokemonCardDetail) {
       responseType: "stream",
     });
 
-    const destination = `./storage/${pokemonCardDetail.group}/${pokemonCardDetail.group}.${pokemonCardDetail.number}.${pokemonCardDetail.name}.png`;
+    const destination = `./pokemonCards/${pokemonCardDetail.group}/${pokemonCardDetail.group}.${pokemonCardDetail.number}.${pokemonCardDetail.name}.png`;
 
     const destinationFolder = path.dirname(destination);
 
